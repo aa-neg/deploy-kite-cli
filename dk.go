@@ -1,23 +1,23 @@
 package main
 
 import (
-	"os"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
+
 	"github.com/kardianos/osext"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
-	"io/ioutil"
-	"encoding/json"
-	"path/filepath"
 )
 
 type configStruct struct {
 	Pipelines map[string]string `json:"pipelines"`
 }
 
-type pipeline struct {
-	Pipeline map[string]number `json:"pipeline`
+type pipelineStatus struct {
+	build string
 }
 
 func main() {
@@ -28,54 +28,58 @@ func main() {
 
 	app := cli.NewApp()
 
-	app.Name = "Teleporter"
+	app.Name = "Deploy kite cli"
 
-	app.Usage = "Alias paths and teleport to them!"
+	app.Usage = "View latest builds and deploy them"
 
 	app.Commands = []cli.Command{
 		{
-			Name: "add",
+			Name:    "add",
 			Aliases: []string{"a"},
-			Usage: "Add a pipeline",
-			Action: func(c *cli.Context) {
+			Usage:   "Add a pipeline",
+			Action: func(context *cli.Context) {
 				log.Println(addPipeline(context, config, executableFolder))
 			},
 		},
 		{
-			Name: "remove",
+			Name:    "remove",
 			Aliases: []string{"r", "rm"},
-			Usage: "Remove a pipeline",
+			Usage:   "Remove a pipeline",
 			Action: func(c *cli.Context) {
 				log.Println(removePipeline(c, config, executableFolder))
 			},
 		},
 		{
-			Name: "list",
-			Aliases: []string{"l","ls"},
-			Usage: "List current latest builds of your pipelines",
+			Name:    "list",
+			Aliases: []string{"l", "ls"},
+			Usage:   "List current latest builds of your pipelines",
 			Action: func(c *cli.Context) error {
 				fmt.Println("")
-				listAliases(config.Alias)
+				listPipelines(config.Pipelines)
 				fmt.Println("")
 				return nil
 			},
-		}
+		},
 	}
 
 	app.Run(os.Args)
 
 }
 
+func findLatestBuild() {
+
+}
+
 func listPipelines(pipelines map[string]string) {
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Alias", "Path"})
-	table.SetBorders(tablewriter.Border{Left: false, Top:false, Right: false, Bottom: false})
+	table.SetHeader([]string{"Pipeline", "Latest build"})
+	table.SetBorders(tablewriter.Border{Left: false, Top: false, Right: false, Bottom: false})
 	table.SetCenterSeparator("  ")
 	table.SetColumnSeparator("  ")
 	table.SetRowSeparator("-")
-	for alias, path := range pipelines {
-		table.Append([]string{pipeline, filepath.Clean(path)})
+	for pipeline, build := range pipelines {
+		table.Append([]string{pipeline, build})
 	}
 
 	table.Render()
@@ -86,16 +90,6 @@ func handleErr(err error) {
 		fmt.Println("Shit hapened: ", err)
 		panic(err)
 	}
-}
-
-
-func loadConfiguration(location string) configStruct {
-	configBytes, err := ioutil.ReadFile(location + "/config.json")
-	handleErr(err)
-	var config configStruct
-	err2 := json.Unmarshal(configBytes, &config)
-	handleErr(err2)
-	return config
 }
 
 func pathExists(path string) (bool, error) {
@@ -109,24 +103,20 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-func addPipeline(context *cli.Context, config configStruct, executableFolder string) string{
+func addPipeline(context *cli.Context, config configStruct, executableFolder string) string {
 	args := context.Args()
 	switch len(args) {
-		case 0:
-			return "Please specifty a pipeline"
-        case 1:
-			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-			var pipeline = args[0]
-			handleErr(err)
-			if path, exists := config.Pipelines[args[0]]; exists {
-				 return ("Pipeline: " + pipeline + " already added.")
-			} else {
-				config.Pipelines[args[0]] = args[0]
-				saveConfiguration(config, executableFolder)
-			}
-        default:
-			return "Invalid number of arguments. See --help."
-    
+	case 0:
+		return "Please specifty a pipeline"
+	case 1:
+		if _, exists := config.Pipelines[args[0]]; exists {
+			return ("Pipeline: " + args[0] + " already added.")
+		}
+
+		config.Pipelines[args[0]] = "1234"
+		saveConfiguration(config, executableFolder)
+	default:
+		return "Invalid number of arguments. See --help."
 	}
 
 	return ""
@@ -136,26 +126,33 @@ func removePipeline(context *cli.Context, config configStruct, executableFolder 
 	args := context.Args()
 
 	switch len(args) {
-		case 0:
-			return "Please specify a pipeline to remove"
-        case 1:
-			if _, exists := config.Pipelines[args[0]]; exists {
-				delete(config.Pipelines, args[0])
-				saveConfiguration(config, executableFolder)
-				return "Removed pipeline: " + args[0]
-			} else {
-				return "Pipeline doesn't exist"
-			}
-        default:
-			return "Invalid number of arguments"
+	case 0:
+		return "Please specify a pipeline to remove"
+	case 1:
+		if _, exists := config.Pipelines[args[0]]; exists {
+			delete(config.Pipelines, args[0])
+			saveConfiguration(config, executableFolder)
+			return "Removed pipeline: " + args[0]
+		}
+		return "Pipeline doesn't exist"
+	default:
+		return "Invalid number of arguments"
 	}
-
-	return ""
 }
 
-func saveConfiguration(config configStruct,location string) {
+func saveConfiguration(config configStruct, location string) {
+	fmt.Println(config)
 	configBytes, err := json.MarshalIndent(config, "", "    ")
 	handleErr(err)
-	writeErr := ioutil.WriteFile(location + "/config.json", configBytes, 0755)
+	writeErr := ioutil.WriteFile(location+"/config.json", configBytes, 0755)
 	handleErr(writeErr)
+}
+
+func loadConfiguration(location string) configStruct {
+	configBytes, err := ioutil.ReadFile(location + "/config.json")
+	handleErr(err)
+	var config configStruct
+	err2 := json.Unmarshal(configBytes, &config)
+	handleErr(err2)
+	return config
 }

@@ -1,0 +1,9 @@
+{
+    "pipelines": {
+        "nexus2-api": {
+            "build": "12345"
+        },
+        "nexus2-api-a": {},
+        "nexus2-api-t": {}
+    }
+}
