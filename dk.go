@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/kardianos/osext"
 	"github.com/olekukonko/tablewriter"
@@ -20,9 +23,23 @@ type pipelineStatus struct {
 	build string
 }
 
+type baseBuild struct {
+	Number int    `json:"number"`
+	Branch string `json:"branch"`
+}
+
+const baseBuildkiteURL string = "https://api.buildkite.com/v2/organizations/"
+
 func main() {
 	executableFolder, err := osext.ExecutableFolder()
 	handleErr(err)
+
+	buildkiteToken := os.Getenv("BUILDKITE_TOKEN")
+
+	if len(buildkiteToken) < 1 {
+		fmt.Println("Missing BUILDKITE_TOKEN!")
+		return
+	}
 
 	config := loadConfiguration(executableFolder)
 
@@ -38,7 +55,7 @@ func main() {
 			Aliases: []string{"a"},
 			Usage:   "Add a pipeline",
 			Action: func(context *cli.Context) {
-				log.Println(addPipeline(context, config, executableFolder))
+				log.Println(addPipeline(context, config, executableFolder, buildkiteToken))
 			},
 		},
 		{
@@ -55,7 +72,7 @@ func main() {
 			Usage:   "List current latest builds of your pipelines",
 			Action: func(c *cli.Context) error {
 				fmt.Println("")
-				listPipelines(config.Pipelines)
+				listPipelines(config.Pipelines, buildkiteToken)
 				fmt.Println("")
 				return nil
 			},
@@ -66,11 +83,59 @@ func main() {
 
 }
 
-func findLatestBuild() {
+func findLatestBuild(pipeline string, buildkiteToken string) int {
+	client := &http.Client{Timeout: 10 * time.Second}
+	uri := baseBuildkiteURL + "/siteminder/pipelines/" + pipeline + "/builds"
+	req, err := http.NewRequest("GET", uri, nil)
+	handleErr(err)
+	req.Header.Add("Authorization", "Bearer "+buildkiteToken)
+	resp, err := client.Do(req)
+	handleErr(err)
 
+	defer resp.Body.Close()
+
+	body, readErr := ioutil.ReadAll(resp.Body)
+	handleErr(readErr)
+	var builds []*json.RawMessage
+	jsonErr := json.Unmarshal(body, &builds)
+	handleErr(jsonErr)
+
+	build := builds[0]
+
+	var buildNumber baseBuild
+
+	jsonErr2 := json.Unmarshal(*build, &buildNumber)
+	handleErr(jsonErr2)
+
+	return buildNumber.Number
 }
 
-func listPipelines(pipelines map[string]string) {
+func checkExistingPipeline(pipeline string, buildkiteToken string) bool {
+	client := &http.Client{Timeout: 10 * time.Second}
+	uri := baseBuildkiteURL + "/siteminder/pipelines/" + pipeline
+	req, err := http.NewRequest("GET", uri, nil)
+	handleErr(err)
+	req.Header.Add("Authorization", "Bearer "+buildkiteToken)
+	resp, err := client.Do(req)
+	handleErr(err)
+
+	defer resp.Body.Close()
+
+	body, readErr := ioutil.ReadAll(resp.Body)
+	handleErr(readErr)
+	var builds interface{}
+	jsonErr := json.Unmarshal(body, &builds)
+	handleErr(jsonErr)
+	existingPipeline := builds.(map[string]interface{})
+
+	if _, exists := existingPipeline["id"]; exists {
+		return true
+	}
+
+	return false
+}
+
+func listPipelines(pipelines map[string]string, buildkiteToken string) {
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Pipeline", "Latest build"})
@@ -78,8 +143,10 @@ func listPipelines(pipelines map[string]string) {
 	table.SetCenterSeparator("  ")
 	table.SetColumnSeparator("  ")
 	table.SetRowSeparator("-")
-	for pipeline, build := range pipelines {
-		table.Append([]string{pipeline, build})
+	for pipeline := range pipelines {
+		build := findLatestBuild(pipeline, buildkiteToken)
+
+		table.Append([]string{pipeline, strconv.Itoa(build)})
 	}
 
 	table.Render()
@@ -103,7 +170,7 @@ func pathExists(path string) (bool, error) {
 	return true, err
 }
 
-func addPipeline(context *cli.Context, config configStruct, executableFolder string) string {
+func addPipeline(context *cli.Context, config configStruct, executableFolder string, buildkiteToken string) string {
 	args := context.Args()
 	switch len(args) {
 	case 0:
@@ -112,8 +179,11 @@ func addPipeline(context *cli.Context, config configStruct, executableFolder str
 		if _, exists := config.Pipelines[args[0]]; exists {
 			return ("Pipeline: " + args[0] + " already added.")
 		}
+		if !checkExistingPipeline(args[0], buildkiteToken) {
+			return ("Pipeline: " + args[0] + " doesn't exist.")
+		}
 
-		config.Pipelines[args[0]] = "1234"
+		config.Pipelines[args[0]] = ""
 		saveConfiguration(config, executableFolder)
 	default:
 		return "Invalid number of arguments. See --help."

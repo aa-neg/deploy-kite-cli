@@ -1,9 +1,8 @@
 {
     "pipelines": {
-        "nexus2-api": {
-            "build": "12345"
-        },
-        "nexus2-api-a": {},
-        "nexus2-api-t": {}
+        "nexus2-admin-beef": "",
+        "nexus2-api": "",
+        "nexus2-authentication-beef": "",
+        "nexus2-authentication-frontend": ""
     }
 }
