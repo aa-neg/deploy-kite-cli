@@ -1,0 +1,9 @@
+[package]
+name = "dk-cli"
+version = "0.1.0"
+authors = ["arnolda <>"]
+
+[dependencies]
+clap = "2.26.0"
+prettytable-rs = "^0.6"
+serde_json = "1.0"

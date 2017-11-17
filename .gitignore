@@ -4,13 +4,9 @@
 *.so
 *.dylib
 
-# Test binary, build with `go test -c`
-*.test
+/target/
+**/*.rs.bk
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
-# Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
-.glide/
 
 ./deploy-kite-cli
+.DS_Store 
