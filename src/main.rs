@@ -4,6 +4,10 @@ extern crate clap;
 extern crate prettytable;
 #[macro_use]
 extern crate serde_json;
+extern crate hyper;
+extern crate reqwest;
+
+use hyper::header::{Headers, Connection, Authorization, Bearer};
 
 use clap::{Arg, App};
 
@@ -15,9 +19,37 @@ use serde_json::{Value, Error};
 
 use std::fs::File;
 use std::io::Read;
-
+use std::env;
 
 fn main() {
+	let build_kite_token :String = env::var("BUILD_KITE_TOKEN").expect("Missing build kite token.");
+	println!("Do we have a build kite token?: {}", build_kite_token);
+
+	let mut latest_build_query  = r#"{
+		"query": "query getLastetBuildNumber($slug_name: ID!) { pipeline (slug: $slug_name) { builds(first: 1,state: PASSED) { edges { node { number } } } } }",
+		"variables": "{ \"slug_name\": \"siteminder/nexus2-admin-beef\" }"
+	}"# ;
+		// Create a client.
+	let client = reqwest::Client::new();
+	let mut res = client.post("https://graphql.buildkite.com/v1")
+			.header(Authorization(
+				Bearer {
+					token: build_kite_token.to_owned()
+				}
+			))
+			.body(latest_build_query)
+			.send().unwrap();
+
+	// Read the Response.
+	let mut body = String::new();
+	res.read_to_string(&mut body).unwrap();
+	let body: Value = serde_json::from_str(&body).unwrap();
+
+	println!("Finished our request.");
+	let build_number = &body["data"]["pipeline"]["builds"]["edges"][0]["node"]["number"];
+
+	println!("our build number {}", build_number);
+
 	get_config();
 	
 	let matches = App::new("Deploy-kite cli")
@@ -27,7 +59,7 @@ fn main() {
 	.arg(Arg::with_name("operation")
 		.index(1)
 		.required(true)
-		.possible_values(&["list", "add"])
+		.possible_values(&["list", "add", "remove"])
 		.help("an operation"))
 	.arg(Arg::with_name("target")
 		.short("a")
@@ -37,6 +69,10 @@ fn main() {
 		.takes_value(true)
 		.help("target of previous command"))
 	.get_matches();
+
+
+
+
 	
 	
 	match matches.value_of("operation").unwrap() {
@@ -44,8 +80,11 @@ fn main() {
 			list_saved_items();
 		},
 		"add" => {
-			println!("too much code for now");
 			handle_add(matches.values_of("add").unwrap());
+		},
+		"remove" => {
+			println!("removing a config");
+
 		},
 		_  => println!("Operation not available.")
 	}
