@@ -40,7 +40,7 @@ fn main() {
 
 	// send_sqs();
 
-	get_config();
+	// get_config();
 	
 	let matches = App::new("Deploy-kite cli")
 		.version("0.1.0")
