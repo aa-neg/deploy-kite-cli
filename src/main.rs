@@ -20,7 +20,9 @@ use std::env;
 mod operations;
 mod services;
 
+use operations::deploy;
 use services::buildkite;
+use services::buildkite::BuildDetails;
 use services::awsSqs;
 
 fn main() {
@@ -28,8 +30,13 @@ fn main() {
 	env::var("AWS_SECRET_ACCESS_KEY").expect("missing aws env variables");
 	env::var("BUILD_KITE_TOKEN").expect("Missing build kite token env variable");
 
-	buildkite::get_latest_build_number();
-	awsSqs::send_deployment();
+	// let client = reqwest::Client::new();
+
+	// let details: BuildDetails = buildkite::get_latest_build_number(&client, String::from("siteminder/nexus2-admin-beef"));
+	// println!("Our build number: {}", details.build_number);
+	// println!("Our job id number: {}", details.job_uuid);
+	// println!("Our job status number: {}", details.job_state);
+	// awsSqs::send_deployment();
 
 	// send_sqs();
 
@@ -42,11 +49,9 @@ fn main() {
 	.arg(Arg::with_name("operation")
 		.index(1)
 		.required(true)
-		.possible_values(&["list", "add", "remove"])
+		.possible_values(&["list", "add", "remove", "deploy"])
 		.help("an operation"))
-	.arg(Arg::with_name("target")
-		.short("a")
-		.long("add")
+	.arg(Arg::with_name("targets")
 		.index(2)
 		.multiple(true)
 		.takes_value(true)
@@ -58,28 +63,29 @@ fn main() {
 			operations::list::watched_collection();
 		},
 		"add" => {
-			handle_add(matches.values_of("add").unwrap());
+			println!("trying to add");
+			handle_add(matches.values_of("targets").unwrap());
 		},
 		"remove" => {
 			println!("removing a config");
-
 		},
+		"deploy" => {
+			deploy::target_pipeline(matches.values_of("targets").unwrap());
+		}
 		_  => println!("Operation not available.")
 	}
 }
 
 
 fn get_config() {
-	println!("We currently live here: {:?}", std::env::current_exe());
+	// println!("We currently live here: {:?}", std::env::current_exe());
 	let mut file = File::open("config.json").unwrap();
 	let mut config_string = String::new();
 	file.read_to_string(&mut config_string).unwrap();
 	
-	println!("Our json as a string!: {}", config_string);
-	
 	let parsed: Value = serde_json::from_str(&config_string).unwrap();
 	
-	println!("we parsed our config here is our pipelines: {}", parsed["pipelines"])
+	// println!("we parsed our config here is our pipelines: {}", parsed["pipelines"])
 	
 }
 
