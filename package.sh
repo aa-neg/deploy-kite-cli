@@ -3,6 +3,7 @@ mkdir /tmp/dk-brew-build
 cargo build --release
 cp ./target/release/dk /tmp/dk-brew-build
 cp ./config.json /tmp/dk-brew-build
+cp ./homebrew/configure /tmp/dk-brew-build
 
 cd /tmp/dk-brew-build
 
