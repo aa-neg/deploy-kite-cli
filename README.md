@@ -1,6 +1,17 @@
 # deploy-kite-cli
 Deploy kite cli tool
 
+## Features
+Deploy latest version of a pipeline through the unblock of a build step.
+```
+dk deploy <pipeline name>
+```
+
+## packaging
+```
+shasum -a 256 <dk-version>.tar.gz
+```
+
 
 ## Installation
 
