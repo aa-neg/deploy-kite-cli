@@ -89,11 +89,12 @@ pub fn get_latest_build_number(
     };
 }
 
-pub fn unblock_build(client: &reqwest::Client, build_number: String, job_uuid: String) {
+pub fn unblock_build(client: &reqwest::Client, build_number: String, job_uuid: String, pipeline: String) {
     let mut query_url = format!(
-        "https://api.buildkite.com/v2/organizations/siteminder/pipelines/nexus2-authentication-beef/builds/{build_number}/jobs/{job_uuid}/unblock",
+        "https://api.buildkite.com/v2/organizations/siteminder/pipelines/{pipeline}/builds/{build_number}/jobs/{job_uuid}/unblock",
         build_number = build_number,
-        job_uuid = job_uuid
+        job_uuid = job_uuid,
+        pipeline = pipeline
     );
 
     println!("Our unblock build request: {}", query_url);

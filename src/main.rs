@@ -26,8 +26,8 @@ use services::buildkite::BuildDetails;
 use services::awsSqs;
 
 fn main() {
-	env::var("AWS_ACCESS_KEY_ID").expect("missing aws env variables");
-	env::var("AWS_SECRET_ACCESS_KEY").expect("missing aws env variables");
+	// env::var("AWS_ACCESS_KEY_ID").expect("missing aws env variables");
+	// env::var("AWS_SECRET_ACCESS_KEY").expect("missing aws env variables");
 	env::var("BUILD_KITE_TOKEN").expect("Missing build kite token env variable");
 
 	// let client = reqwest::Client::new();
