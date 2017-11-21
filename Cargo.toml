@@ -1,5 +1,5 @@
 [package]
-name = "dk-cli"
+name = "dk"
 version = "0.1.0"
 authors = ["arnolda <>"]
 
